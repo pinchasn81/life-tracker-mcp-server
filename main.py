@@ -15,8 +15,12 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from mcp.server.fastmcp import FastMCP
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (only needed for local development with .env file)
+# Cloud deployments provide env vars directly, so this is optional
+try:
+    load_dotenv()
+except Exception:
+    pass  # Ignore if .env doesn't exist or can't be loaded
 
 # Configure logging
 logging.basicConfig(
@@ -33,15 +37,21 @@ mcp = FastMCP("LifeTracker")
 AWS_REGION = os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION") or "eu-central-1"
 TABLE_PREFIX = os.getenv("TABLE_PREFIX", "")  # e.g., "UserProfile-abc123-staging"
 
-logger.info(f"Initializing DynamoDB client with region: {AWS_REGION}")
+# Lazy initialization of DynamoDB to avoid asyncio conflicts
+_dynamodb = None
 
-# Initialize DynamoDB client with explicit region
-dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+def get_dynamodb():
+    """Get or create DynamoDB resource (lazy initialization)."""
+    global _dynamodb
+    if _dynamodb is None:
+        logger.info(f"Initializing DynamoDB client with region: {AWS_REGION}")
+        _dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
+    return _dynamodb
 
-# Table references (will be set based on environment)
 def get_table(table_name: str):
     """Get DynamoDB table reference with proper naming."""
     full_table_name = f"{table_name}-{TABLE_PREFIX}" if TABLE_PREFIX else table_name
+    dynamodb = get_dynamodb()
     return dynamodb.Table(full_table_name)
 
 from enum import Enum
