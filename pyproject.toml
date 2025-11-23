@@ -1,0 +1,13 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+description = "MCP server for LifeTracker - DynamoDB integration"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.22.0",
+    "boto3==1.40.76",
+    "python-dotenv>=1.0.0",
+    "boto3-stubs==1.40.76",
+    "debugpy>=1.8.17",
+]
