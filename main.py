@@ -29,10 +29,13 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("LifeTracker")
 
 # AWS Configuration
-AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
+# Boto3 looks for AWS_DEFAULT_REGION first, then AWS_REGION
+AWS_REGION = os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION") or "eu-central-1"
 TABLE_PREFIX = os.getenv("TABLE_PREFIX", "")  # e.g., "UserProfile-abc123-staging"
 
-# Initialize DynamoDB client
+logger.info(f"Initializing DynamoDB client with region: {AWS_REGION}")
+
+# Initialize DynamoDB client with explicit region
 dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
 
 # Table references (will be set based on environment)
