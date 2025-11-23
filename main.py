@@ -516,6 +516,15 @@ def get_recent_activities_resource(owner: str) -> str:
 # MAIN - Run the server
 # ============================================================================
 
+# The 'mcp' object is automatically used by:
+# - Local development: `uv run mcp dev main.py`
+# - Cloud deployment: FastMCP imports and serves this object via HTTP
+# - Claude Desktop: Add this file to claude_desktop_config.json
+#
+# Only call mcp.run() if you're running this file directly with Python
+# (not recommended - use 'mcp dev' instead)
 if __name__ == "__main__":
-    # Run the server
-    mcp.run()
+    # This block is not needed for normal FastMCP usage
+    # Uncomment below only if you want to run with `python main.py` directly
+    # mcp.run()
+    pass
