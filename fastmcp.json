@@ -1,0 +1,17 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "path": "main.py",
+    "entrypoint": "mcp"
+  },
+  "deployment": {
+    "transport": "http",
+    "env": {
+      "AWS_REGION": "eu-central-1",
+      "AWS_ACCESS_KEY_ID": "${AWS_ACCESS_KEY_ID}",
+      "AWS_SECRET_ACCESS_KEY": "${AWS_SECRET_ACCESS_KEY}",
+      "TABLE_PREFIX": "${TABLE_PREFIX}"
+    }
+  }
+}
+

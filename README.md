@@ -94,6 +94,30 @@ You can find your actual DynamoDB table names by:
 3. **From Amplify outputs:**
    Check your `amplify_outputs.json` for the AppSync API ID, then construct the table names.
 
+## Deployment
+
+### Cloud Deployment (FastMCP)
+
+Deploy to FastMCP cloud for serverless, always-available access:
+
+```bash
+# Install FastMCP CLI
+pip install fastmcp
+
+# Authenticate
+fastmcp auth login
+
+# Set environment variables
+fastmcp env set AWS_ACCESS_KEY_ID your_key
+fastmcp env set AWS_SECRET_ACCESS_KEY your_secret
+fastmcp env set TABLE_PREFIX your_prefix
+
+# Deploy
+fastmcp deploy
+```
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for detailed deployment instructions.
+
 ## Usage
 
 ### Running the Server
