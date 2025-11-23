@@ -54,23 +54,13 @@ def get_table(table_name: str):
     dynamodb = get_dynamodb()
     return dynamodb.Table(full_table_name)
 
-from enum import Enum
 # ============================================================================
 # ACTIVITY LOG TOOLS
 # ============================================================================
-class ActivityTypes(Enum):
-    food = "food"
-    drink = "drink"
-    sleep = "sleep"
-    smoking = "smoking"
-    exercise = "exercise"
-    supplement = "supplement"
-    stomach = "stomach"
-
 
 @mcp.tool()
 def create_activity_log(
-    activity_type: ActivityTypes,
+    activity_type: str,
     raw_input: str,
     timestamp: Optional[str] = None,
     processed_data: Optional[Dict[str, Any]] = None,
@@ -80,7 +70,7 @@ def create_activity_log(
     Create a new activity log entry in DynamoDB.
     
     Args:
-        activity_type: Type of activity (food, drink, exercise, supplement, sleep, smoking, etc.)
+        activity_type: Type of activity. Valid values: food, drink, exercise, supplement, sleep, smoking, stomach
         raw_input: Original text/voice/image input from the user
         timestamp: ISO format timestamp (defaults to current time)
         processed_data: LLM processed structured data as JSON
