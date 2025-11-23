@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Load environment variables (only needed for local development with .env file)
 # Cloud deployments provide env vars directly, so this is optional
