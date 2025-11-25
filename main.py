@@ -65,7 +65,7 @@ def get_table(table_name: str):
 # pattern: Regex pattern for string validation
 # default: Default value if parameter is omitted
 
-class ActivityTypes(Enum):
+# class ActivityTypes(Enum):
     food = "food"
     drink = "drink"
     sleep = "sleep"
@@ -137,6 +137,60 @@ def create_food_or_drink_activity_log(
         return json.dumps({
             "success": True,
             "message": "Activity log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_exercise_activity_log(
+    raw_input: Annotated[str, Field(description="Original text/voice/image input from the user describing the exercise activity")],
+    processed_data: Annotated[
+        ProcessedDataExercise,
+        Field(description="Exercise data including: duration_min (int, minutes of exercise), exercise_type (string, e.g. 'running', 'yoga'), and intensity (optional: 'low', 'moderate', or 'high')")
+    ],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
+    activity_type: Annotated[str, Field(description="Activity type, defaults to 'exercise'", default="exercise")] = "exercise",
+) -> str:
+    """
+    Create an exercise activity log entry in DynamoDB with structured exercise data.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new exercise log entry")
+        # Generate ID and timestamps
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        # Add optional fields
+        if processed_data:
+            # Convert Pydantic model to dict, then to JSON string
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        # Put item in DynamoDB
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": "Exercise log created successfully",
             "data": item
         }, indent=2)
         
