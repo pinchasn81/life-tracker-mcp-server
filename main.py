@@ -8,12 +8,14 @@ import logging
 import os
 import json
 from datetime import datetime
-from typing import Optional, Any, Dict, List
+from enum import Enum
+from typing import Optional, Any, Dict, List, Annotated
 from dotenv import load_dotenv
 
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 from fastmcp import FastMCP
+from pydantic import BaseModel, Field
 
 # Load environment variables (only needed for local development with .env file)
 # Cloud deployments provide env vars directly, so this is optional
@@ -57,13 +59,37 @@ def get_table(table_name: str):
 # ============================================================================
 # ACTIVITY LOG TOOLS
 # ============================================================================
+# description: Human-readable explanation of the parameter (shown to LLMs)
+# ge/gt/le/lt: Greater/less than (or equal) constraints
+# min_length/max_length: String or collection length constraints
+# pattern: Regex pattern for string validation
+# default: Default value if parameter is omitted
+
+class ActivityTypes(Enum):
+    food = "food"
+    drink = "drink"
+    sleep = "sleep"
+    smoking = "smoking"
+    exercise = "exercise"
+    supplement = "supplement"
+    stomach = "stomach"
+
+class ProcessedDataDrinkAndFood(BaseModel):
+    estimated_portion_size: Optional[Any]
+    macro_nutrients: Dict[str, Any]
+    micro_nutrients: Dict[str, str]
+    glycemic_load: Annotated[int, Field(description="Estimated Glycemic load", ge=0, le=10)]
+
+class ProcessedDataExercise(BaseModel):
+    duration_min: int
+    exercise_type: str
 
 @mcp.tool()
 def create_activity_log(
-    activity_type: str,
+    activity_type: ActivityTypes,
     raw_input: str,
+    processed_data: ProcessedDataDrinkAndFood | ProcessedDataExercise,
     timestamp: Optional[str] = None,
-    processed_data: Optional[Dict[str, Any]] = None,
     owner: Optional[str] = None,
 ) -> str:
     """
