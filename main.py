@@ -74,8 +74,14 @@ class ActivityTypes(Enum):
     supplement = "supplement"
     stomach = "stomach"
 
+class FoodAndDrinkActivityTypes(Enum):
+    food = "food"
+    drink = "drink"
+
+
 class ProcessedDataDrinkAndFood(BaseModel):
     """Nutritional data for food or drink items."""
+    description: Annotated[str, Field(description="LLM's detailed interpretation of the food/drink item (e.g., 'one cup of black coffee', '1 medium avocado', '150g grilled chicken breast')")]
     estimated_portion_size: Annotated[Optional[str], Field(description="Estimated portion size (e.g., '1 cup', '100g', '1 medium avocado')", default=None)]
     macro_nutrients: Annotated[Dict[str, float], Field(description="Macronutrients in grams: {'protein': 2.0, 'carbs': 9.0, 'fat': 15.0, 'fiber': 7.0}")]
     micro_nutrients: Annotated[Dict[str, str], Field(description="Key micronutrients with amounts: {'vitamin_e': '2.7mg', 'potassium': '485mg', 'folate': '81mcg'}")]
@@ -88,18 +94,18 @@ class ProcessedDataExercise(BaseModel):
     intensity: Annotated[Optional[str], Field(description="Intensity level: 'low', 'moderate', or 'high'", default=None)] = None
 
 @mcp.tool()
-def create_activity_log(
-    activity_type: Annotated[ActivityTypes, Field(description="Type of activity: food, drink, exercise, supplement, sleep, smoking, or stomach")],
-    raw_input: Annotated[str, Field(description="Original text/voice/image input from the user describing the activity")],
+def create_food_or_drink_activity_log(
+    activity_type: Annotated[FoodAndDrinkActivityTypes, Field(description="Type of food or drink activity: 'food' or 'drink'")],
+    raw_input: Annotated[str, Field(description="Original text/voice/image input from the user describing what they ate or drank")],
     processed_data: Annotated[
-        ProcessedDataDrinkAndFood | ProcessedDataExercise,
-        Field(description="Structured data processed by LLM: nutritional info for food/drink, or duration/type for exercise")
+        ProcessedDataDrinkAndFood,
+        Field(description="Nutritional data including: description (detailed interpretation of food/drink), estimated_portion_size (optional string), macro_nutrients (dict with protein/carbs/fat/fiber as floats), micro_nutrients (dict with vitamin amounts as strings), and glycemic_load (int 0-50)")
     ],
     timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
     owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
 ) -> str:
     """
-    Create a new activity log entry in DynamoDB with structured nutritional or exercise data.
+    Create a food or drink activity log entry in DynamoDB with structured nutritional data.
     """
     try:
         table = get_table("ActivityLog")
