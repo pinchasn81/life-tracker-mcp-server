@@ -118,7 +118,7 @@ def create_food_or_drink_activity_log(
         item = {
             "id": item_id,
             "timestamp": timestamp,
-            "activityType": activity_type,
+            "activityType": activity_type.value,  # Convert Enum to string
             "rawInput": raw_input,
             "createdAt": now,
             "updatedAt": now,
@@ -126,7 +126,8 @@ def create_food_or_drink_activity_log(
         
         # Add optional fields
         if processed_data:
-            item["processedData"] = json.dumps(processed_data)
+            # Convert Pydantic model to dict, then to JSON string
+            item["processedData"] = json.dumps(processed_data.model_dump())
         if owner:
             item["owner"] = owner
             
