@@ -75,14 +75,17 @@ class ActivityTypes(Enum):
     stomach = "stomach"
 
 class ProcessedDataDrinkAndFood(BaseModel):
-    estimated_portion_size: Optional[Any]
-    macro_nutrients: Dict[str, Any]
-    micro_nutrients: Dict[str, str]
-    glycemic_load: Annotated[int, Field(description="Estimated Glycemic load", ge=0, le=10)]
+    """Nutritional data for food or drink items."""
+    estimated_portion_size: Annotated[Optional[str], Field(description="Estimated portion size (e.g., '1 cup', '100g', '1 medium avocado')", default=None)]
+    macro_nutrients: Annotated[Dict[str, float], Field(description="Macronutrients in grams: {'protein': 2.0, 'carbs': 9.0, 'fat': 15.0, 'fiber': 7.0}")]
+    micro_nutrients: Annotated[Dict[str, str], Field(description="Key micronutrients with amounts: {'vitamin_e': '2.7mg', 'potassium': '485mg', 'folate': '81mcg'}")]
+    glycemic_load: Annotated[int, Field(description="Estimated glycemic load (0-10 scale, where 0-10 is low, 11-19 medium, 20+ high)", ge=0, le=50)]
 
 class ProcessedDataExercise(BaseModel):
-    duration_min: int
-    exercise_type: str
+    """Exercise activity data."""
+    duration_min: Annotated[int, Field(description="Duration of exercise in minutes", ge=1)]
+    exercise_type: Annotated[str, Field(description="Type of exercise (e.g., 'running', 'weightlifting', 'yoga', 'swimming')")]
+    intensity: Annotated[Optional[str], Field(description="Intensity level: 'low', 'moderate', or 'high'", default=None)] = None
 
 @mcp.tool()
 def create_activity_log(
