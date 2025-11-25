@@ -65,14 +65,6 @@ def get_table(table_name: str):
 # pattern: Regex pattern for string validation
 # default: Default value if parameter is omitted
 
-# class ActivityTypes(Enum):
-    food = "food"
-    drink = "drink"
-    sleep = "sleep"
-    smoking = "smoking"
-    exercise = "exercise"
-    supplement = "supplement"
-    stomach = "stomach"
 
 class FoodAndDrinkActivityTypes(Enum):
     food = "food"
@@ -93,6 +85,45 @@ class ProcessedDataExercise(BaseModel):
     exercise_type: Annotated[str, Field(description="Type of exercise (e.g., 'running', 'weightlifting', 'yoga', 'swimming')")]
     intensity: Annotated[Optional[str], Field(description="Intensity level: 'low', 'moderate', or 'high'", default=None)] = None
 
+class ProcessedDataSleep(BaseModel):
+    """Sleep activity data."""
+    duration_hours: Annotated[float, Field(description="Duration of sleep in hours (e.g., 7.5)", ge=0, le=24)]
+    quality: Annotated[Optional[str], Field(description="Sleep quality: 'poor', 'fair', 'good', or 'excellent'", default=None)] = None
+    notes: Annotated[Optional[str], Field(description="Additional notes about sleep (e.g., 'woke up twice', 'had nightmares')", default=None)] = None
+
+class ProcessedDataSmoking(BaseModel):
+    """Smoking activity data."""
+    type: Annotated[str, Field(description="Type of smoking (e.g., 'cigarette', 'vape', 'cigar', 'hookah')")]
+    quantity: Annotated[int, Field(description="Number of cigarettes/sessions", ge=1)]
+    notes: Annotated[Optional[str], Field(description="Additional notes (e.g., brand, triggers, feelings)", default=None)] = None
+
+class ProcessedDataSupplement(BaseModel):
+    """Supplement/medication intake data."""
+    name: Annotated[str, Field(description="Name of the supplement or medication (e.g., 'Vitamin D', 'Omega-3', 'Magnesium')")]
+    dosage: Annotated[float, Field(description="Dosage amount as a number (e.g., 1000, 500)", ge=0)]
+    unit: Annotated[str, Field(description="Dosage unit (e.g., 'mg', 'mcg', 'IU', 'tablets', 'capsules')")]
+    notes: Annotated[Optional[str], Field(description="Additional notes (e.g., 'with food', 'morning dose')", default=None)] = None
+
+class ProcessedDataStomach(BaseModel):
+    """Stomach issues/digestive symptoms data."""
+    symptoms: Annotated[list[str], Field(description="List of symptoms (e.g., ['bloating', 'gas', 'diarrhea', 'constipation', 'cramping', 'nausea'])")]
+    severity: Annotated[Optional[str], Field(description="Severity level: 'mild', 'moderate', or 'severe'", default=None)] = None
+    notes: Annotated[Optional[str], Field(description="Additional context (e.g., 'after eating dairy', 'lasted 2 hours')", default=None)] = None
+
+class ProcessedDataGeneric(BaseModel):
+    """Generic/freestyle activity data for activities not covered by specific types."""
+    description: Annotated[str, Field(description="Detailed description of the activity/event (e.g., 'feeling tired and fatigued', 'came down with a cold', 'feeling energetic and positive')")]
+    category: Annotated[Optional[str], Field(description="Optional category/tag for this activity (e.g., 'illness', 'mood', 'symptom', 'energy_level')", default=None)] = None
+    severity: Annotated[Optional[str], Field(description="Severity or intensity if applicable: 'mild', 'moderate', or 'severe'", default=None)] = None
+    notes: Annotated[Optional[str], Field(description="Additional notes or context", default=None)] = None
+
+class ProcessedDataGeneric(BaseModel):
+    """Generic data for any activity type that doesn't have a specific structure."""
+    description: Annotated[str, Field(description="Detailed description of the activity (e.g., 'feeling sick with headache', 'mood: anxious and stressed', 'energy level very low')")]
+    severity: Annotated[Optional[str], Field(description="Severity or intensity level: 'mild', 'moderate', or 'severe'", default=None)] = None
+    tags: Annotated[Optional[list[str]], Field(description="Tags for categorization (e.g., ['mood', 'anxiety'], ['illness', 'headache'])", default=None)] = None
+    notes: Annotated[Optional[str], Field(description="Additional context or details", default=None)] = None
+
 @mcp.tool()
 def create_food_or_drink_activity_log(
     activity_type: Annotated[FoodAndDrinkActivityTypes, Field(description="Type of food or drink activity: 'food' or 'drink'")],
@@ -101,8 +132,8 @@ def create_food_or_drink_activity_log(
         ProcessedDataDrinkAndFood,
         Field(description="Nutritional data including: description (detailed interpretation of food/drink), estimated_portion_size (optional string), macro_nutrients (dict with protein/carbs/fat/fiber as floats), micro_nutrients (dict with vitamin amounts as strings), and glycemic_load (int 0-50)")
     ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
     timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
-    owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
 ) -> str:
     """
     Create a food or drink activity log entry in DynamoDB with structured nutritional data.
@@ -128,8 +159,8 @@ def create_food_or_drink_activity_log(
         if processed_data:
             # Convert Pydantic model to dict, then to JSON string
             item["processedData"] = json.dumps(processed_data.model_dump())
-        if owner:
-            item["owner"] = owner
+        
+        item["owner"] = owner
             
         # Put item in DynamoDB
         table.put_item(Item=item)
@@ -154,8 +185,8 @@ def create_exercise_activity_log(
         ProcessedDataExercise,
         Field(description="Exercise data including: duration_min (int, minutes of exercise), exercise_type (string, e.g. 'running', 'yoga'), and intensity (optional: 'low', 'moderate', or 'high')")
     ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
     timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
-    owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
     activity_type: Annotated[str, Field(description="Activity type, defaults to 'exercise'", default="exercise")] = "exercise",
 ) -> str:
     """
@@ -182,8 +213,8 @@ def create_exercise_activity_log(
         if processed_data:
             # Convert Pydantic model to dict, then to JSON string
             item["processedData"] = json.dumps(processed_data.model_dump())
-        if owner:
-            item["owner"] = owner
+        
+        item["owner"] = owner
             
         # Put item in DynamoDB
         table.put_item(Item=item)
@@ -191,6 +222,306 @@ def create_exercise_activity_log(
         return json.dumps({
             "success": True,
             "message": "Exercise log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_sleep_activity_log(
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing their sleep")],
+    processed_data: Annotated[
+        ProcessedDataSleep,
+        Field(description="Sleep data including: duration_hours (float, hours slept), quality (optional: 'poor', 'fair', 'good', 'excellent'), and notes (optional additional context)")
+    ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    activity_type: Annotated[str, Field(description="Activity type, defaults to 'sleep'", default="sleep")] = "sleep",
+) -> str:
+    """
+    Create a sleep activity log entry in DynamoDB with structured sleep data.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new sleep log entry")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": "Sleep log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_smoking_activity_log(
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing their smoking activity")],
+    processed_data: Annotated[
+        ProcessedDataSmoking,
+        Field(description="Smoking data including: type (e.g., 'cigarette', 'vape'), quantity (int, number of cigarettes/sessions), and notes (optional)")
+    ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    activity_type: Annotated[str, Field(description="Activity type, defaults to 'smoking'", default="smoking")] = "smoking",
+) -> str:
+    """
+    Create a smoking activity log entry in DynamoDB with structured smoking data.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new smoking log entry")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": "Smoking log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_supplement_activity_log(
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing the supplement/medication taken")],
+    processed_data: Annotated[
+        ProcessedDataSupplement,
+        Field(description="Supplement data including: name (supplement name), dosage (float, amount), unit (e.g., 'mg', 'IU', 'tablets'), and notes (optional)")
+    ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    activity_type: Annotated[str, Field(description="Activity type, defaults to 'supplement'", default="supplement")] = "supplement",
+) -> str:
+    """
+    Create a supplement/medication activity log entry in DynamoDB with structured supplement data.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new supplement log entry")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": "Supplement log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_stomach_activity_log(
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing their stomach issues/symptoms")],
+    processed_data: Annotated[
+        ProcessedDataStomach,
+        Field(description="Stomach issues data including: symptoms (list of strings like ['bloating', 'gas', 'diarrhea']), severity (optional: 'mild', 'moderate', 'severe'), and notes (optional context)")
+    ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    activity_type: Annotated[str, Field(description="Activity type, defaults to 'stomach'", default="stomach")] = "stomach",
+) -> str:
+    """
+    Create a stomach issues activity log entry in DynamoDB with structured symptom data.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new stomach issues log entry")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": "Stomach issues log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_activity_log(
+    activity_type: Annotated[str, Field(description="Type of activity (e.g., 'illness', 'mood', 'energy', 'pain', 'medication', or any custom type)")],
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing the activity")],
+    processed_data: Annotated[
+        ProcessedDataGeneric,
+        Field(description="Generic activity data including: description (detailed description), severity (optional: 'mild', 'moderate', 'severe'), tags (optional list for categorization), and notes (optional)")
+    ],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
+) -> str:
+    """
+    Create a generic activity log entry in DynamoDB for any activity type (illness, mood, energy, pain, etc.).
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new {activity_type} log entry")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": f"{activity_type.capitalize()} log created successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_generic_activity_log(
+    activity_type: Annotated[str, Field(description="Type of activity (e.g., 'illness', 'mood', 'symptom', 'energy_level', 'feeling', or any custom type)")],
+    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing the activity or event")],
+    processed_data: Annotated[
+        ProcessedDataGeneric,
+        Field(description="Generic activity data including: description (detailed description), category (optional tag/category), severity (optional: 'mild', 'moderate', 'severe'), and notes (optional additional context)")
+    ],
+    owner: Annotated[int, Field(description="User ID (integer) to associate this activity with")],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+) -> str:
+    """
+    Create a generic/freestyle activity log entry for activities not covered by specific types (e.g., illness, mood, symptoms, energy levels).
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Creating new generic log entry for type: {activity_type}")
+        item_id = f"activity-{datetime.utcnow().timestamp()}"
+        now = datetime.utcnow().isoformat() + "Z"
+        timestamp = timestamp or now
+        
+        item = {
+            "id": item_id,
+            "timestamp": timestamp,
+            "activityType": activity_type,
+            "rawInput": raw_input,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if processed_data:
+            item["processedData"] = json.dumps(processed_data.model_dump())
+        if owner:
+            item["owner"] = owner
+            
+        table.put_item(Item=item)
+
+        return json.dumps({
+            "success": True,
+            "message": f"Generic activity log ({activity_type}) created successfully",
             "data": item
         }, indent=2)
         
@@ -259,6 +590,93 @@ def get_activity_logs(
             "count": len(items),
             "data": items
         }, indent=2, default=str)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def delete_activity_log(
+    activity_id: Annotated[str, Field(description="The ID of the activity log entry to delete (e.g., 'activity-1234567890.123')")]
+) -> str:
+    """
+    Delete an activity log entry from DynamoDB by its ID.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Deleting activity log entry: {activity_id}")
+        
+        # Delete the item from DynamoDB
+        response = table.delete_item(
+            Key={"id": activity_id},
+            ReturnValues="ALL_OLD"  # Return the deleted item
+        )
+        
+        # Check if item was actually deleted
+        deleted_item = response.get("Attributes")
+        if deleted_item:
+            return json.dumps({
+                "success": True,
+                "message": f"Activity log {activity_id} deleted successfully",
+                "deleted_item": deleted_item
+            }, indent=2, default=str)
+        else:
+            return json.dumps({
+                "success": False,
+                "message": f"Activity log {activity_id} not found"
+            }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def delete_all_user_activities(
+    user_id: Annotated[int, Field(description="User ID (integer) whose all activity logs should be deleted")]
+) -> str:
+    """
+    Delete all activity log entries for a specific user from DynamoDB.
+    """
+    try:
+        table = get_table("ActivityLog")
+        logger.info(f"Deleting all activity logs for user: {user_id}")
+        
+        # Scan for all items with this owner
+        response = table.scan(
+            FilterExpression=Attr("owner").eq(user_id)
+        )
+        
+        items = response.get("Items", [])
+        deleted_count = 0
+        
+        # Delete each item
+        for item in items:
+            table.delete_item(Key={"id": item["id"]})
+            deleted_count += 1
+        
+        # Handle pagination if there are more items
+        while "LastEvaluatedKey" in response:
+            response = table.scan(
+                FilterExpression=Attr("owner").eq(user_id),
+                ExclusiveStartKey=response["LastEvaluatedKey"]
+            )
+            items = response.get("Items", [])
+            for item in items:
+                table.delete_item(Key={"id": item["id"]})
+                deleted_count += 1
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Deleted {deleted_count} activity log(s) for user {user_id}",
+            "deleted_count": deleted_count,
+            "user_id": user_id
+        }, indent=2)
         
     except Exception as e:
         return json.dumps({
