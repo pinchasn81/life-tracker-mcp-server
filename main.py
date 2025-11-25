@@ -86,23 +86,17 @@ class ProcessedDataExercise(BaseModel):
 
 @mcp.tool()
 def create_activity_log(
-    activity_type: ActivityTypes,
-    raw_input: str,
-    processed_data: ProcessedDataDrinkAndFood | ProcessedDataExercise,
-    timestamp: Optional[str] = None,
-    owner: Optional[str] = None,
+    activity_type: Annotated[ActivityTypes, Field(description="Type of activity: food, drink, exercise, supplement, sleep, smoking, or stomach")],
+    raw_input: Annotated[str, Field(description="Original text/voice/image input from the user describing the activity")],
+    processed_data: Annotated[
+        ProcessedDataDrinkAndFood | ProcessedDataExercise,
+        Field(description="Structured data processed by LLM: nutritional info for food/drink, or duration/type for exercise")
+    ],
+    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
+    owner: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
 ) -> str:
     """
-    Create a new activity log entry in DynamoDB.
-    
-    Args:
-        activity_type: Type of activity. Valid values: food, drink, exercise, supplement, sleep, smoking, stomach
-        raw_input: Original text/voice/image input from the user
-        timestamp: ISO format timestamp (defaults to current time)
-        processed_data: LLM processed structured data as JSON
-        owner: Filter by owner/user ID
-    Returns:
-        JSON string with the created item details
+    Create a new activity log entry in DynamoDB with structured nutritional or exercise data.
     """
     try:
         table = get_table("ActivityLog")
@@ -145,24 +139,14 @@ def create_activity_log(
 
 @mcp.tool()
 def get_activity_logs(
-    owner: Optional[str] = None,
-    activity_type: Optional[str] = None,
-    limit: int = 50,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    owner: Annotated[Optional[str], Field(description="Filter by owner/user ID or email address", default=None)] = None,
+    activity_type: Annotated[Optional[str], Field(description="Filter by activity type (food, drink, exercise, supplement, sleep, smoking, stomach)", default=None)] = None,
+    limit: Annotated[int, Field(description="Maximum number of items to return", ge=1, le=100, default=50)] = 50,
+    start_date: Annotated[Optional[str], Field(description="Filter activities after this date (ISO format: YYYY-MM-DDTHH:MM:SSZ)", default=None)] = None,
+    end_date: Annotated[Optional[str], Field(description="Filter activities before this date (ISO format: YYYY-MM-DDTHH:MM:SSZ)", default=None)] = None
 ) -> str:
     """
-    Fetch activity log entries from DynamoDB.
-    
-    Args:
-        owner: Filter by owner/user ID
-        activity_type: Filter by activity type (food, drink, exercise, etc.)
-        limit: Maximum number of items to return (default: 50)
-        start_date: Filter activities after this date (ISO format)
-        end_date: Filter activities before this date (ISO format)
-    
-    Returns:
-        JSON string with the list of activity logs
+    Fetch activity log entries from DynamoDB with optional filters for owner, type, and date range.
     """
     try:
         table = get_table("ActivityLog")
