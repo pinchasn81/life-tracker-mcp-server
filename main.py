@@ -84,10 +84,10 @@ class FoodAndDrinkActivityTypes(Enum):
 
 class FatBreakdown(BaseModel):
     """Detailed breakdown of fat types."""
-    saturated_g: Annotated[Optional[float], Field(None, description="Saturated fat in grams")]
-    monounsaturated_g: Annotated[Optional[float], Field(None, description="Monounsaturated fat in grams")]
-    polyunsaturated_g: Annotated[Optional[float], Field(None, description="Polyunsaturated fat in grams")]
-    trans_g: Annotated[Optional[float], Field(None, description="Trans fat in grams")]
+    saturated_g: Annotated[float, Field(None, description="Saturated fat in grams")]
+    monounsaturated_g: Annotated[float, Field(None, description="Monounsaturated fat in grams")]
+    polyunsaturated_g: Annotated[float, Field(None, description="Polyunsaturated fat in grams")]
+    trans_g: Annotated[float, Field(None, description="Trans fat in grams")]
 
 
 class MacroNutrients(BaseModel):
@@ -96,15 +96,15 @@ class MacroNutrients(BaseModel):
     protein_g: Annotated[float, Field(description="Protein in grams")]
     carbs_g: Annotated[float, Field(description="Carbohydrates in grams")]
     fat_g: Annotated[float, Field(description="Total fat in grams")]
-    fat_breakdown: Annotated[Optional[FatBreakdown], Field(None, description="Breakdown of fat types in grams")]
-    fiber_g: Annotated[Optional[float], Field(None, description="Dietary fiber in grams")]
-    sugar_g: Annotated[Optional[float], Field(None, description="Sugar in grams")]
+    fat_breakdown: Annotated[FatBreakdown, Field(None, description="Breakdown of fat types in grams")]
+    fiber_g: Annotated[float, Field(None, description="Dietary fiber in grams")]
+    sugar_g: Annotated[float, Field(None, description="Sugar in grams")]
 
 
 class ProcessedDataDrinkAndFood(BaseModel):
     """Nutritional data for food or drink items."""
     description: Annotated[str, Field(description="LLM's detailed interpretation of the food/drink item (e.g., 'one cup of black coffee', '1 medium avocado', '150g grilled chicken breast')")]
-    estimated_portion_size: Annotated[Optional[str], Field(description="Estimated portion size (e.g., '1 cup', '100g', '1 medium avocado')", default=None)]
+    estimated_portion_size: Annotated[str, Field(description="Estimated portion size (e.g., '1 cup', '100g', '1 medium avocado')", default=None)]
     macro_nutrients: Annotated[MacroNutrients, Field(description="Macronutrients with calories, protein, carbs, fat, fiber, sugar, and optional fat breakdown")]
     micro_nutrients: Annotated[Dict[str, str], Field(description="Key micronutrients with amounts: {'vitamin_e': '2.7mg', 'potassium': '485mg', 'folate': '81mcg'}")]
     glycemic_load: Annotated[int, Field(description="Estimated glycemic load (0-10 scale, where 0-10 is low, 11-19 medium, 20+ high)", ge=0, le=50)]
@@ -113,7 +113,7 @@ class ProcessedDataExercise(BaseModel):
     """Exercise activity data."""
     duration_min: Annotated[int, Field(description="Duration of exercise in minutes", ge=1)]
     exercise_type: Annotated[str, Field(description="Type of exercise (e.g., 'running', 'weightlifting', 'yoga', 'swimming')")]
-    intensity: Annotated[Optional[str], Field(description="Intensity level: 'low', 'moderate', or 'high'", default=None)] = None
+    intensity: Annotated[str, Field(description="Intensity level: 'low', 'moderate', or 'high'", default=None)] = None
 
 class ProcessedDataSleep(BaseModel):
     """Sleep activity data."""
@@ -1059,6 +1059,79 @@ def get_memory_entries(
             "error": str(e)
         }, indent=2)
 
+
+@mcp.tool()
+def delete_all_user_memories(
+    user_name: Annotated[str, Field(description="User name/identifier whose all memory entries should be deleted")]
+) -> str:
+    """
+    Delete all memory entries for a specific user from DynamoDB.
+    """
+    log("info", f"[delete_all_user_memories] START - user_name={user_name}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        # Try Query on GSI first, fall back to Scan if GSI doesn't exist
+        try:
+            log("info", f"[delete_all_user_memories] Attempting Query on user_name GSI")
+            response = table.query(
+                IndexName="user_name-index",
+                KeyConditionExpression=Key("user_name").eq(user_name)
+            )
+            using_query = True
+        except Exception as gsi_error:
+            log("warning", f"[delete_all_user_memories] GSI query failed ({str(gsi_error)}), falling back to Scan")
+            response = table.scan(
+                FilterExpression=Attr("user_name").eq(user_name),
+                ConsistentRead=True
+            )
+            using_query = False
+        
+        items = response.get("Items", [])
+        deleted_count = 0
+        
+        log("info", f"[delete_all_user_memories] Found {len(items)} memory entries to delete")
+        
+        # Delete each item
+        for item in items:
+            table.delete_item(Key={"id": item["id"]})
+            deleted_count += 1
+        
+        # Handle pagination if there are more items
+        while "LastEvaluatedKey" in response:
+            if using_query:
+                response = table.query(
+                    IndexName="user_name-index",
+                    KeyConditionExpression=Key("user_name").eq(user_name),
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+            else:
+                response = table.scan(
+                    FilterExpression=Attr("user_name").eq(user_name),
+                    ConsistentRead=True,
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+            items = response.get("Items", [])
+            log("info", f"[delete_all_user_memories] Found {len(items)} more memory entries in next page")
+            for item in items:
+                table.delete_item(Key={"id": item["id"]})
+                deleted_count += 1
+        
+        log("info", f"[delete_all_user_memories] SUCCESS - deleted {deleted_count} memory entries for user_name={user_name}")
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Deleted {deleted_count} memory entry(s) for user {user_name}",
+            "deleted_count": deleted_count,
+            "user_name": user_name
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[delete_all_user_memories] ERROR - user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
 
 
 @mcp.resource("recent-activities://{user_name}")
