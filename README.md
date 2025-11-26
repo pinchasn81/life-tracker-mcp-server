@@ -4,9 +4,24 @@ MCP server for LifeTracker DynamoDB integration.
 
 ## Files
 
-- `main.py` - FastMCP server for local development
-- `server.py` - Base MCP Server for HTTP deployment (alternative)
+- `main.py` - FastMCP server with activity logging tools
 - `fastmcp.json` - Deployment configuration
+- `GSI_SETUP.md` - Guide for creating DynamoDB Global Secondary Index
+
+## Prerequisites
+
+### Required DynamoDB GSI
+
+For optimal performance and consistency, create a Global Secondary Index on `user_name`:
+
+**Index configuration:**
+- Index name: `user_name-index`
+- Partition key: `user_name` (String)
+- Projection: ALL
+
+See **[GSI_SETUP.md](./GSI_SETUP.md)** for detailed setup instructions.
+
+**Note:** The server will work without the GSI but will fall back to slower Scan operations with `ConsistentRead=True`.
 
 ## Local Development
 

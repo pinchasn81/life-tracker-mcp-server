@@ -573,35 +573,102 @@ def get_activity_logs(
     try:
         table = get_table("ActivityLog")
         
-        # Build scan parameters
-        scan_kwargs = {
-            "Limit": limit
-        }
-        
-        # Build filter expression
-        filter_expressions = []
-        
+        # If user_name is provided, try to use Query on GSI for better performance
+        # Fall back to Scan if GSI doesn't exist
         if user_name:
-            filter_expressions.append(Attr("user_name").eq(user_name))
-        
-        if activity_type:
-            filter_expressions.append(Attr("activityType").eq(activity_type))
+            try:
+                log("info", f"[get_activity_logs] Attempting Query on user_name GSI")
+                
+                # Build query parameters
+                query_kwargs = {
+                    "IndexName": "user_name-index",  # GSI name - adjust if different
+                    "KeyConditionExpression": Key("user_name").eq(user_name),
+                    "Limit": limit,
+                }
+                
+                # Build additional filters for activity_type and dates
+                filter_expressions = []
+                
+                if activity_type:
+                    filter_expressions.append(Attr("activityType").eq(activity_type))
+                    
+                if start_date:
+                    filter_expressions.append(Attr("timestamp").gte(start_date))
+                    
+                if end_date:
+                    filter_expressions.append(Attr("timestamp").lte(end_date))
+                
+                # Add filter expression if we have additional filters
+                if filter_expressions:
+                    filter_expr = filter_expressions[0]
+                    for expr in filter_expressions[1:]:
+                        filter_expr = filter_expr & expr
+                    query_kwargs["FilterExpression"] = filter_expr
+                
+                # Perform query
+                response = table.query(**query_kwargs)
+                log("info", f"[get_activity_logs] Query successful on GSI")
+                
+            except Exception as gsi_error:
+                # GSI doesn't exist or error - fall back to Scan
+                log("warning", f"[get_activity_logs] GSI query failed ({str(gsi_error)}), falling back to Scan with ConsistentRead")
+                
+                scan_kwargs = {
+                    "Limit": limit,
+                    "ConsistentRead": True,  # Use strongly consistent reads
+                    "FilterExpression": Attr("user_name").eq(user_name)
+                }
+                
+                # Build additional filters
+                filter_expressions = [Attr("user_name").eq(user_name)]
+                
+                if activity_type:
+                    filter_expressions.append(Attr("activityType").eq(activity_type))
+                    
+                if start_date:
+                    filter_expressions.append(Attr("timestamp").gte(start_date))
+                    
+                if end_date:
+                    filter_expressions.append(Attr("timestamp").lte(end_date))
+                
+                # Combine filters
+                filter_expr = filter_expressions[0]
+                for expr in filter_expressions[1:]:
+                    filter_expr = filter_expr & expr
+                scan_kwargs["FilterExpression"] = filter_expr
+                
+                response = table.scan(**scan_kwargs)
+        else:
+            log("info", f"[get_activity_logs] Using Scan (no user_name filter)")
             
-        if start_date:
-            filter_expressions.append(Attr("timestamp").gte(start_date))
+            # Build scan parameters
+            scan_kwargs = {
+                "Limit": limit,
+                "ConsistentRead": True,  # Use strongly consistent reads for better accuracy
+            }
             
-        if end_date:
-            filter_expressions.append(Attr("timestamp").lte(end_date))
+            # Build filter expression
+            filter_expressions = []
+            
+            if activity_type:
+                filter_expressions.append(Attr("activityType").eq(activity_type))
+                
+            if start_date:
+                filter_expressions.append(Attr("timestamp").gte(start_date))
+                
+            if end_date:
+                filter_expressions.append(Attr("timestamp").lte(end_date))
+            
+            # Combine filters
+            if filter_expressions:
+                filter_expr = filter_expressions[0]
+                for expr in filter_expressions[1:]:
+                    filter_expr = filter_expr & expr
+                scan_kwargs["FilterExpression"] = filter_expr
+            
+            # Perform scan
+            response = table.scan(**scan_kwargs)
         
-        # Combine filters
-        if filter_expressions:
-            filter_expr = filter_expressions[0]
-            for expr in filter_expressions[1:]:
-                filter_expr = filter_expr & expr
-            scan_kwargs["FilterExpression"] = filter_expr
-        
-        # Perform scan
-        response = table.scan(**scan_kwargs)
         items = response.get("Items", [])
         
         # Parse JSON strings back to objects
@@ -680,13 +747,26 @@ def delete_all_user_activities(
     try:
         table = get_table("ActivityLog")
         
-        # Scan for all items with this user_name
-        response = table.scan(
-            FilterExpression=Attr("user_name").eq(user_name)
-        )
+        # Try Query on GSI first, fall back to Scan if GSI doesn't exist
+        try:
+            log("info", f"[delete_all_user_activities] Attempting Query on user_name GSI")
+            response = table.query(
+                IndexName="user_name-index",  # GSI name - adjust if different
+                KeyConditionExpression=Key("user_name").eq(user_name)
+            )
+            using_query = True
+        except Exception as gsi_error:
+            log("warning", f"[delete_all_user_activities] GSI query failed ({str(gsi_error)}), falling back to Scan")
+            response = table.scan(
+                FilterExpression=Attr("user_name").eq(user_name),
+                ConsistentRead=True
+            )
+            using_query = False
         
         items = response.get("Items", [])
         deleted_count = 0
+        
+        log("info", f"[delete_all_user_activities] Found {len(items)} items to delete")
         
         # Delete each item
         for item in items:
@@ -695,11 +775,20 @@ def delete_all_user_activities(
         
         # Handle pagination if there are more items
         while "LastEvaluatedKey" in response:
-            response = table.scan(
-                FilterExpression=Attr("user_name").eq(user_name),
-                ExclusiveStartKey=response["LastEvaluatedKey"]
-            )
+            if using_query:
+                response = table.query(
+                    IndexName="user_name-index",
+                    KeyConditionExpression=Key("user_name").eq(user_name),
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
+            else:
+                response = table.scan(
+                    FilterExpression=Attr("user_name").eq(user_name),
+                    ConsistentRead=True,
+                    ExclusiveStartKey=response["LastEvaluatedKey"]
+                )
             items = response.get("Items", [])
+            log("info", f"[delete_all_user_activities] Found {len(items)} more items in next page")
             for item in items:
                 table.delete_item(Key={"id": item["id"]})
                 deleted_count += 1
