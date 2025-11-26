@@ -107,7 +107,7 @@ class ProcessedDataDrinkAndFood(BaseModel):
     estimated_portion_size: Annotated[str, Field(description="Estimated portion size (e.g., '1 cup', '100g', '1 medium avocado')", default=None)]
     macro_nutrients: Annotated[MacroNutrients, Field(description="Macronutrients with calories, protein, carbs, fat, fiber, sugar, and optional fat breakdown")]
     micro_nutrients: Annotated[Dict[str, str], Field(description="Key micronutrients with amounts: {'vitamin_e': '2.7mg', 'potassium': '485mg', 'folate': '81mcg'}")]
-    glycemic_load: Annotated[int, Field(description="Estimated glycemic load (0-10 scale, where 0-10 is low, 11-19 medium, 20+ high)", ge=0, le=50)]
+    glycemic_load: Annotated[int, Field(description="Estimated glycemic load: 0-10 is low, 11-19 is medium, 20+ is high (typical max ~50)", ge=0, le=50)]
 
 class ProcessedDataExercise(BaseModel):
     """Exercise activity data."""
