@@ -969,13 +969,12 @@ def create_supplement_memory(
 def get_memory_entries(
     user_name: Annotated[str, Field(description="User name/identifier to fetch memory entries for")],
     entry_type: Annotated[Optional[str], Field(description="Filter by entry type: 'food_drink', 'exercise', 'sleep', 'supplement'", default=None)] = None,
-    name_contains: Annotated[Optional[str], Field(description="Filter by entries whose name contains this text", default=None)] = None,
-    limit: Annotated[int, Field(description="Maximum number of items to return", ge=1, le=100, default=50)] = 50,
+    limit: Annotated[int, Field(description="Maximum number of items to return", ge=1, le=200, default=200)] = 200,
 ) -> str:
     """
-    Fetch saved memory entries from DynamoDB for a specific user.
+    Fetch all saved memory entries from DynamoDB for a specific user.
     """
-    log("info", f"[get_memory_entries] START - user_name={user_name}, entry_type={entry_type}, name_contains={name_contains}, limit={limit}")
+    log("info", f"[get_memory_entries] START - user_name={user_name}, entry_type={entry_type}, limit={limit}")
     try:
         table = get_table("MemoryEntry")
         
@@ -989,20 +988,9 @@ def get_memory_entries(
                 "Limit": limit,
             }
             
-            # Build additional filters
-            filter_expressions = []
-            
+            # Add optional entry_type filter
             if entry_type:
-                filter_expressions.append(Attr("entryType").eq(entry_type))
-            
-            if name_contains:
-                filter_expressions.append(Attr("name").contains(name_contains))
-            
-            if filter_expressions:
-                filter_expr = filter_expressions[0]
-                for expr in filter_expressions[1:]:
-                    filter_expr = filter_expr & expr
-                query_kwargs["FilterExpression"] = filter_expr
+                query_kwargs["FilterExpression"] = Attr("entryType").eq(entry_type)
             
             response = table.query(**query_kwargs)
             log("info", f"[get_memory_entries] Query successful on GSI")
@@ -1010,24 +998,20 @@ def get_memory_entries(
         except Exception as gsi_error:
             log("warning", f"[get_memory_entries] GSI query failed ({str(gsi_error)}), falling back to Scan")
             
-            scan_kwargs = {
-                "Limit": limit,
-                "ConsistentRead": True,
-                "FilterExpression": Attr("user_name").eq(user_name)
-            }
-            
             filter_expressions = [Attr("user_name").eq(user_name)]
             
             if entry_type:
                 filter_expressions.append(Attr("entryType").eq(entry_type))
             
-            if name_contains:
-                filter_expressions.append(Attr("name").contains(name_contains))
-            
             filter_expr = filter_expressions[0]
             for expr in filter_expressions[1:]:
                 filter_expr = filter_expr & expr
-            scan_kwargs["FilterExpression"] = filter_expr
+            
+            scan_kwargs = {
+                "Limit": limit,
+                "ConsistentRead": True,
+                "FilterExpression": filter_expr
+            }
             
             response = table.scan(**scan_kwargs)
         
