@@ -27,9 +27,20 @@ except Exception:
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True  # Override any existing configuration
 )
-logger = logging.getLogger(__name__)
+
+# Use root logger or module logger
+logger = logging.getLogger("LifeTracker")
+logger.setLevel(logging.INFO)
+
+# Helper function to ensure logs appear in FastMCP server logs
+def log(level: str, message: str):
+    """Log message to both Python logger and stdout for FastMCP visibility."""
+    log_func = getattr(logger, level.lower(), logger.info)
+    log_func(message)
+    print(message)  # Ensures visibility in FastMCP server logs
 
 # Initialize FastMCP server
 mcp = FastMCP("LifeTracker")
@@ -46,7 +57,7 @@ def get_dynamodb():
     """Get or create DynamoDB resource (lazy initialization)."""
     global _dynamodb
     if _dynamodb is None:
-        logger.info(f"Initializing DynamoDB client with region: {AWS_REGION}")
+        log("info", f"Initializing DynamoDB client with region: {AWS_REGION}")
         _dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
     return _dynamodb
 
@@ -131,7 +142,7 @@ def create_food_or_drink_activity_log(
     """
     Create a food or drink activity log entry in DynamoDB with structured nutritional data.
     """
-    logger.info(f"[create_food_or_drink_activity_log] START - activity_type={activity_type.value}, user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, timestamp={timestamp}")
+    log("info", f"[create_food_or_drink_activity_log] START - activity_type={activity_type.value}, user_name={user_name}, raw_input='{raw_input}', timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         
@@ -159,7 +170,7 @@ def create_food_or_drink_activity_log(
         # Put item in DynamoDB
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_food_or_drink_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type.value}")
+        log("info", f"[create_food_or_drink_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type.value}")
 
         return json.dumps({
             "success": True,
@@ -168,7 +179,7 @@ def create_food_or_drink_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_food_or_drink_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
+        log("error", f"[create_food_or_drink_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -189,7 +200,7 @@ def create_exercise_activity_log(
     """
     Create an exercise activity log entry in DynamoDB with structured exercise data.
     """
-    logger.info(f"[create_exercise_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
+    log("info", f"[create_exercise_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         # Generate ID and timestamps
@@ -216,7 +227,7 @@ def create_exercise_activity_log(
         # Put item in DynamoDB
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_exercise_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
+        log("info", f"[create_exercise_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
 
         return json.dumps({
             "success": True,
@@ -225,7 +236,7 @@ def create_exercise_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_exercise_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
+        log("error", f"[create_exercise_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -246,7 +257,7 @@ def create_sleep_activity_log(
     """
     Create a sleep activity log entry in DynamoDB with structured sleep data.
     """
-    logger.info(f"[create_sleep_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
+    log("info", f"[create_sleep_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
@@ -269,7 +280,7 @@ def create_sleep_activity_log(
             
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_sleep_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, duration={processed_data.duration_hours}h")
+        log("info", f"[create_sleep_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, duration={processed_data.duration_hours}h")
 
         return json.dumps({
             "success": True,
@@ -278,7 +289,7 @@ def create_sleep_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_sleep_activity_log] ERROR - user_name={user_name}, error={str(e)}")
+        log("error", f"[create_sleep_activity_log] ERROR - user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -299,7 +310,7 @@ def create_smoking_activity_log(
     """
     Create a smoking activity log entry in DynamoDB with structured smoking data.
     """
-    logger.info(f"[create_smoking_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
+    log("info", f"[create_smoking_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
@@ -322,7 +333,7 @@ def create_smoking_activity_log(
             
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_smoking_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, type={processed_data.type}, quantity={processed_data.quantity}")
+        log("info", f"[create_smoking_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, type={processed_data.type}, quantity={processed_data.quantity}")
 
         return json.dumps({
             "success": True,
@@ -331,7 +342,7 @@ def create_smoking_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_smoking_activity_log] ERROR - user_name={user_name}, error={str(e)}")
+        log("error", f"[create_smoking_activity_log] ERROR - user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -352,7 +363,7 @@ def create_supplement_activity_log(
     """
     Create a supplement/medication activity log entry in DynamoDB with structured supplement data.
     """
-    logger.info(f"[create_supplement_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
+    log("info", f"[create_supplement_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
@@ -375,7 +386,7 @@ def create_supplement_activity_log(
             
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_supplement_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, supplement={processed_data.name}, dosage={processed_data.dosage}{processed_data.unit}")
+        log("info", f"[create_supplement_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, supplement={processed_data.name}, dosage={processed_data.dosage}{processed_data.unit}")
 
         return json.dumps({
             "success": True,
@@ -384,7 +395,7 @@ def create_supplement_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_supplement_activity_log] ERROR - user_name={user_name}, error={str(e)}")
+        log("error", f"[create_supplement_activity_log] ERROR - user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -405,7 +416,7 @@ def create_stomach_activity_log(
     """
     Create a stomach issues activity log entry in DynamoDB with structured symptom data.
     """
-    logger.info(f"[create_stomach_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
+    log("info", f"[create_stomach_activity_log] START - user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, activity_type={activity_type}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
@@ -449,15 +460,15 @@ def create_activity_log(
         ProcessedDataGeneric,
         Field(description="Generic activity data including: description (detailed description), severity (optional: 'mild', 'moderate', 'severe'), tags (optional list for categorization), and notes (optional)")
     ],
+    user_name: Annotated[str, Field(description="User name/identifier to associate this activity with")],
     timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
-    user_name: Annotated[Optional[str], Field(description="User ID or email address to associate this activity with", default=None)] = None,
 ) -> str:
     """
     Create a generic activity log entry in DynamoDB for any activity type (illness, mood, energy, pain, etc.).
     """
+    log("info", f"[create_activity_log] START - activity_type={activity_type}, user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
-        logger.info(f"Creating new {activity_type} log entry")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
         now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
         timestamp = timestamp or now
@@ -473,10 +484,12 @@ def create_activity_log(
         
         if processed_data:
             item["processedData"] = json.dumps(processed_data.model_dump())
-        if user_name:
-            item["user_name"] = user_name
+        
+        item["user_name"] = user_name
             
-        table.put_item(Item=item)
+        response = table.put_item(Item=item)
+        
+        log("info", f"[create_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
 
         return json.dumps({
             "success": True,
@@ -485,6 +498,7 @@ def create_activity_log(
         }, indent=2)
         
     except Exception as e:
+        log("error", f"[create_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -505,7 +519,7 @@ def create_generic_activity_log(
     """
     Create a generic/freestyle activity log entry for activities not covered by specific types (e.g., illness, mood, symptoms, energy levels).
     """
-    logger.info(f"[create_generic_activity_log] START - activity_type={activity_type}, user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, timestamp={timestamp}")
+    log("info", f"[create_generic_activity_log] START - activity_type={activity_type}, user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, timestamp={timestamp}")
     try:
         table = get_table("ActivityLog")
         item_id = f"activity-{datetime.now(UTC).timestamp()}"
@@ -528,7 +542,7 @@ def create_generic_activity_log(
             
         response = table.put_item(Item=item)
         
-        logger.info(f"[create_generic_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
+        log("info", f"[create_generic_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
 
         return json.dumps({
             "success": True,
@@ -537,7 +551,7 @@ def create_generic_activity_log(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[create_generic_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
+        log("error", f"[create_generic_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -555,7 +569,7 @@ def get_activity_logs(
     """
     Fetch activity log entries from DynamoDB with optional filters for user_name, type, and date range.
     """
-    logger.info(f"[get_activity_logs] START - user_name={user_name}, activity_type={activity_type}, limit={limit}, start_date={start_date}, end_date={end_date}")
+    log("info", f"[get_activity_logs] START - user_name={user_name}, activity_type={activity_type}, limit={limit}, start_date={start_date}, end_date={end_date}")
     try:
         table = get_table("ActivityLog")
         
@@ -598,7 +612,7 @@ def get_activity_logs(
                 except:
                     pass
         
-        logger.info(f"[get_activity_logs] SUCCESS - found {len(items)} activity logs")
+        log("info", f"[get_activity_logs] SUCCESS - found {len(items)} activity logs")
         
         return json.dumps({
             "success": True,
@@ -607,7 +621,7 @@ def get_activity_logs(
         }, indent=2, default=str)
         
     except Exception as e:
-        logger.error(f"[get_activity_logs] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
+        log("error", f"[get_activity_logs] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -621,7 +635,7 @@ def delete_activity_log(
     """
     Delete an activity log entry from DynamoDB by its ID.
     """
-    logger.info(f"[delete_activity_log] START - activity_id={activity_id}")
+    log("info", f"[delete_activity_log] START - activity_id={activity_id}")
     try:
         table = get_table("ActivityLog")
         
@@ -634,21 +648,21 @@ def delete_activity_log(
         # Check if item was actually deleted
         deleted_item = response.get("Attributes")
         if deleted_item:
-            logger.info(f"[delete_activity_log] SUCCESS - deleted activity_id={activity_id}")
+            log("info", f"[delete_activity_log] SUCCESS - deleted activity_id={activity_id}")
             return json.dumps({
                 "success": True,
                 "message": f"Activity log {activity_id} deleted successfully",
                 "deleted_item": deleted_item
             }, indent=2, default=str)
         else:
-            logger.warning(f"[delete_activity_log] NOT_FOUND - activity_id={activity_id}")
+            log("warning", f"[delete_activity_log] NOT_FOUND - activity_id={activity_id}")
             return json.dumps({
                 "success": False,
                 "message": f"Activity log {activity_id} not found"
             }, indent=2)
         
     except Exception as e:
-        logger.error(f"[delete_activity_log] ERROR - activity_id={activity_id}, error={str(e)}")
+        log("error", f"[delete_activity_log] ERROR - activity_id={activity_id}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -662,7 +676,7 @@ def delete_all_user_activities(
     """
     Delete all activity log entries for a specific user from DynamoDB.
     """
-    logger.info(f"[delete_all_user_activities] START - user_name={user_name}")
+    log("info", f"[delete_all_user_activities] START - user_name={user_name}")
     try:
         table = get_table("ActivityLog")
         
@@ -690,7 +704,7 @@ def delete_all_user_activities(
                 table.delete_item(Key={"id": item["id"]})
                 deleted_count += 1
         
-        logger.info(f"[delete_all_user_activities] SUCCESS - deleted {deleted_count} activities for user_name={user_name}")
+        log("info", f"[delete_all_user_activities] SUCCESS - deleted {deleted_count} activities for user_name={user_name}")
         
         return json.dumps({
             "success": True,
@@ -700,7 +714,7 @@ def delete_all_user_activities(
         }, indent=2)
         
     except Exception as e:
-        logger.error(f"[delete_all_user_activities] ERROR - user_name={user_name}, error={str(e)}")
+        log("error", f"[delete_all_user_activities] ERROR - user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -1022,8 +1036,14 @@ def delete_all_user_activities(
 @mcp.resource("recent-activities://{user_name}")
 def get_recent_activities_resource(user_name: str, limit: int = 20) -> str:
     """Get recent activity logs as a resource for LLM context."""
-    result = get_activity_logs(user_name=user_name, limit=limit)
-    return result
+    log("info", f"[get_recent_activities_resource] START - user_name={user_name}, limit={limit}")
+    try:
+        result = get_activity_logs(user_name=user_name, limit=limit)
+        log("info", f"[get_recent_activities_resource] SUCCESS - fetched activities for user_name={user_name}")
+        return result
+    except Exception as e:
+        log("error", f"[get_recent_activities_resource] ERROR - user_name={user_name}, error={str(e)}")
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 
 # ============================================================================
