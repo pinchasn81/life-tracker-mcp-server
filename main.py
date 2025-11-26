@@ -453,59 +453,6 @@ def create_stomach_activity_log(
 
 
 @mcp.tool()
-def create_activity_log(
-    activity_type: Annotated[str, Field(description="Type of activity (e.g., 'illness', 'mood', 'energy', 'pain', 'medication', or any custom type)")],
-    raw_input: Annotated[str, Field(description="Original text/voice input from the user describing the activity")],
-    processed_data: Annotated[
-        ProcessedDataGeneric,
-        Field(description="Generic activity data including: description (detailed description), severity (optional: 'mild', 'moderate', 'severe'), tags (optional list for categorization), and notes (optional)")
-    ],
-    user_name: Annotated[str, Field(description="User name/identifier to associate this activity with")],
-    timestamp: Annotated[Optional[str], Field(description="ISO format timestamp (defaults to current UTC time if not provided)", default=None)] = None,
-) -> str:
-    """
-    Create a generic activity log entry in DynamoDB for any activity type (illness, mood, energy, pain, etc.).
-    """
-    log("info", f"[create_activity_log] START - activity_type={activity_type}, user_name={user_name}, raw_input='{raw_input}', processed_data={processed_data.model_dump()}, timestamp={timestamp}")
-    try:
-        table = get_table("ActivityLog")
-        item_id = f"activity-{datetime.now(UTC).timestamp()}"
-        now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
-        timestamp = timestamp or now
-        
-        item = {
-            "id": item_id,
-            "timestamp": timestamp,
-            "activityType": activity_type,
-            "rawInput": raw_input,
-            "createdAt": now,
-            "updatedAt": now,
-        }
-        
-        if processed_data:
-            item["processedData"] = json.dumps(processed_data.model_dump())
-        
-        item["user_name"] = user_name
-            
-        response = table.put_item(Item=item)
-        
-        log("info", f"[create_activity_log] SUCCESS - created activity_id={item_id}, user_name={user_name}, activity_type={activity_type}")
-
-        return json.dumps({
-            "success": True,
-            "message": f"{activity_type.capitalize()} log created successfully",
-            "data": item
-        }, indent=2)
-        
-    except Exception as e:
-        log("error", f"[create_activity_log] ERROR - user_name={user_name}, activity_type={activity_type}, error={str(e)}")
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
-
-
-@mcp.tool()
 def create_generic_activity_log(
     activity_type: Annotated[str, Field(description="Type of activity (e.g., 'illness', 'mood', 'symptom', 'energy_level', 'feeling', or any custom type)")],
     raw_input: Annotated[str, Field(description="Original text/voice input from the user describing the activity or event")],
@@ -810,316 +757,305 @@ def delete_all_user_activities(
         }, indent=2)
 
 
-# # ============================================================================
-# # USER PROFILE TOOLS
-# # ============================================================================
-#
-# @mcp.tool()
-# def get_user_profile(user_name: str) -> str:
-#     """
-#     Fetch user profile from DynamoDB.
-#
-#     Args:
-#         user_name: User ID/email to fetch profile for
-#
-#     Returns:
-#         JSON string with the user profile data
-#     """
-#     try:
-#         table = get_table("UserProfile")
-#
-#         # Scan for profile with this user_name
-#         response = table.scan(
-#             FilterExpression=Attr("user_name").eq(user_name),
-#             Limit=1
-#         )
-#
-#         items = response.get("Items", [])
-#
-#         if not items:
-#             return json.dumps({
-#                 "success": False,
-#                 "message": "User profile not found"
-#             }, indent=2)
-#
-#         return json.dumps({
-#             "success": True,
-#             "data": items[0]
-#         }, indent=2, default=str)
-#
-#     except Exception as e:
-#         return json.dumps({
-#             "success": False,
-#             "error": str(e)
-#         }, indent=2)
-#
-#
-# @mcp.tool()
-# def update_user_profile(
-#     user_name: str,
-#     email: Optional[str] = None,
-#     gender: Optional[str] = None,
-#     date_of_birth: Optional[str] = None,
-#     weight: Optional[float] = None,
-#     height: Optional[float] = None,
-#     activity_level: Optional[str] = None,
-#     dietary_preferences: Optional[str] = None,
-#     health_goals: Optional[str] = None,
-#     allergies: Optional[str] = None,
-#     medications: Optional[str] = None
-# ) -> str:
-#     """
-#     Create or update user profile in DynamoDB.
-#
-#     Args:
-#         user_name: User ID/email
-#         email: User's email
-#         gender: User's gender
-#         date_of_birth: Date of birth (YYYY-MM-DD format)
-#         weight: Weight in kg
-#         height: Height in cm
-#         activity_level: Activity level (sedentary, light, moderate, active, very_active)
-#         dietary_preferences: Dietary preferences
-#         health_goals: Health goals
-#         allergies: Known allergies
-#         medications: Current medications
-#
-#     Returns:
-#         JSON string with the updated profile
-#     """
-#     try:
-#         table = get_table("UserProfile")
-#
-#         # Check if profile exists
-#         response = table.scan(
-#             FilterExpression=Attr("user_name").eq(user_name),
-#             Limit=1
-#         )
-#
-#         items = response.get("Items", [])
-#         now = datetime.utcnow().isoformat() + "Z"
-#
-#         if items:
-#             # Update existing profile
-#             item_id = items[0]["id"]
-#             update_expr = "SET updatedAt = :now"
-#             expr_values = {":now": now}
-#             expr_names = {}
-#
-#             # Build update expression for provided fields
-#             fields = {
-#                 "email": email,
-#                 "gender": gender,
-#                 "dateOfBirth": date_of_birth,
-#                 "weight": weight,
-#                 "height": height,
-#                 "activityLevel": activity_level,
-#                 "dietaryPreferences": dietary_preferences,
-#                 "healthGoals": health_goals,
-#                 "allergies": allergies,
-#                 "medications": medications
-#             }
-#
-#             for field_name, value in fields.items():
-#                 if value is not None:
-#                     placeholder = f":{field_name}"
-#                     name_placeholder = f"#{field_name}"
-#                     update_expr += f", {name_placeholder} = {placeholder}"
-#                     expr_values[placeholder] = value
-#                     expr_names[name_placeholder] = field_name
-#
-#             table.update_item(
-#                 Key={"id": item_id},
-#                 UpdateExpression=update_expr,
-#                 ExpressionAttributeValues=expr_values,
-#                 ExpressionAttributeNames=expr_names if expr_names else None
-#             )
-#
-#             # Fetch updated item
-#             updated = table.get_item(Key={"id": item_id})
-#
-#             return json.dumps({
-#                 "success": True,
-#                 "message": "Profile updated successfully",
-#                 "data": updated.get("Item", {})
-#             }, indent=2, default=str)
-#
-#         else:
-#             # Create new profile
-#             item_id = f"profile-{datetime.utcnow().timestamp()}"
-#
-#             item = {
-#                 "id": item_id,
-#                 "user_name": user_name,
-#                 "createdAt": now,
-#                 "updatedAt": now,
-#             }
-#
-#             # Add all provided fields
-#             if email: item["email"] = email
-#             if gender: item["gender"] = gender
-#             if date_of_birth: item["dateOfBirth"] = date_of_birth
-#             if weight: item["weight"] = weight
-#             if height: item["height"] = height
-#             if activity_level: item["activityLevel"] = activity_level
-#             if dietary_preferences: item["dietaryPreferences"] = dietary_preferences
-#             if health_goals: item["healthGoals"] = health_goals
-#             if allergies: item["allergies"] = allergies
-#             if medications: item["medications"] = medications
-#
-#             table.put_item(Item=item)
-#
-#             return json.dumps({
-#                 "success": True,
-#                 "message": "Profile created successfully",
-#                 "data": item
-#             }, indent=2, default=str)
-#
-#     except Exception as e:
-#         return json.dumps({
-#             "success": False,
-#             "error": str(e)
-#         }, indent=2)
-#
-#
-# # ============================================================================
-# # MEMORY ENTRY TOOLS
-# # ============================================================================
-#
-# @mcp.tool()
-# def create_memory_entry(
-#     entry_type: str,
-#     name: str,
-#     data: Dict[str, Any],
-#     user_name: Optional[str] = None
-# ) -> str:
-#     """
-#     Create a new memory entry (saved food, exercise, etc.) in DynamoDB.
-#
-#     Args:
-#         entry_type: Type of entry (food, exercise, custom)
-#         name: Name of the item (e.g., "Greek Yogurt", "Morning Run")
-#         data: Structured data about the item (nutritional info, exercise details, etc.)
-#         user_name: User ID/email (user_name of the record)
-#
-#     Returns:
-#         JSON string with the created memory entry
-#     """
-#     try:
-#         table = get_table("MemoryEntry")
-#
-#         # Generate ID and timestamps
-#         item_id = f"memory-{datetime.utcnow().timestamp()}"
-#         now = datetime.utcnow().isoformat() + "Z"
-#
-#         item = {
-#             "id": item_id,
-#             "entryType": entry_type,
-#             "name": name,
-#             "data": json.dumps(data),
-#             "createdAt": now,
-#             "updatedAt": now,
-#         }
-#
-#         if user_name:
-#             item["user_name"] = user_name
-#
-#         # Put item in DynamoDB
-#         table.put_item(Item=item)
-#
-#         return json.dumps({
-#             "success": True,
-#             "message": "Memory entry created successfully",
-#             "data": item
-#         }, indent=2)
-#
-#     except Exception as e:
-#         return json.dumps({
-#             "success": False,
-#             "error": str(e)
-#         }, indent=2)
-#
-#
-# @mcp.tool()
-# def get_memory_entries(
-#     user_name: Optional[str] = None,
-#     entry_type: Optional[str] = None,
-#     name_contains: Optional[str] = None,
-#     limit: int = 50
-# ) -> str:
-#     """
-#     Fetch memory entries from DynamoDB.
-#
-#     Args:
-#         user_name: Filter by user_name/user ID
-#         entry_type: Filter by entry type (food, exercise, custom)
-#         name_contains: Filter by entries whose name contains this string
-#         limit: Maximum number of items to return (default: 50)
-#
-#     Returns:
-#         JSON string with the list of memory entries
-#     """
-#     try:
-#         table = get_table("MemoryEntry")
-#
-#         # Build scan parameters
-#         scan_kwargs = {
-#             "Limit": limit
-#         }
-#
-#         # Build filter expression
-#         filter_expressions = []
-#
-#         if user_name:
-#             filter_expressions.append(Attr("user_name").eq(user_name))
-#
-#         if entry_type:
-#             filter_expressions.append(Attr("entryType").eq(entry_type))
-#
-#         if name_contains:
-#             filter_expressions.append(Attr("name").contains(name_contains))
-#
-#         # Combine filters
-#         if filter_expressions:
-#             filter_expr = filter_expressions[0]
-#             for expr in filter_expressions[1:]:
-#                 filter_expr = filter_expr & expr
-#             scan_kwargs["FilterExpression"] = filter_expr
-#
-#         # Perform scan
-#         response = table.scan(**scan_kwargs)
-#         items = response.get("Items", [])
-#
-#         # Parse JSON strings back to objects
-#         for item in items:
-#             if "data" in item and isinstance(item["data"], str):
-#                 try:
-#                     item["data"] = json.loads(item["data"])
-#                 except:
-#                     pass
-#
-#         return json.dumps({
-#             "success": True,
-#             "count": len(items),
-#             "data": items
-#         }, indent=2, default=str)
-#
-#     except Exception as e:
-#         return json.dumps({
-#             "success": False,
-#             "error": str(e)
-#         }, indent=2)
-
-
 # ============================================================================
-# RESOURCES - Provide data context to LLMs
+# MEMORY ENTRY TOOLS
 # ============================================================================
 
-# @mcp.resource("profile://{user_name}")
-# def get_profile_resource(user_name: str) -> str:
-#     """Get user profile as a resource for LLM context."""
-#     result = get_user_profile(user_name)
-#     return result
+@mcp.tool()
+def create_food_drink_memory(
+    name: Annotated[str, Field(description="Name of the food/drink item (e.g., 'Greek Yogurt', 'Protein Shake', 'Grilled Chicken')")],
+    processed_data: Annotated[
+        ProcessedDataDrinkAndFood,
+        Field(description="Nutritional data to save for this food/drink memory")
+    ],
+    user_name: Annotated[str, Field(description="User name/identifier to associate this memory with")],
+    notes: Annotated[Optional[str], Field(description="Additional notes or context about this memory item", default=None)] = None,
+) -> str:
+    """
+    Save a food or drink item to memory for quick logging later.
+    """
+    log("info", f"[create_food_drink_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        item_id = f"memory-{datetime.now(UTC).timestamp()}"
+        now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        
+        item = {
+            "id": item_id,
+            "entryType": "food_drink",
+            "name": name,
+            "user_name": user_name,
+            "data": json.dumps(processed_data.model_dump()),
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if notes:
+            item["notes"] = notes
+            
+        response = table.put_item(Item=item)
+        
+        log("info", f"[create_food_drink_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+
+        return json.dumps({
+            "success": True,
+            "message": f"Memory entry '{name}' saved successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[create_food_drink_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_exercise_memory(
+    name: Annotated[str, Field(description="Name of the exercise (e.g., 'Morning Run', 'Leg Day Workout', 'Yoga Session')")],
+    processed_data: Annotated[
+        ProcessedDataExercise,
+        Field(description="Exercise data to save for this memory")
+    ],
+    user_name: Annotated[str, Field(description="User name/identifier to associate this memory with")],
+    notes: Annotated[Optional[str], Field(description="Additional notes or context about this exercise routine", default=None)] = None,
+) -> str:
+    """
+    Save an exercise routine to memory for quick logging later.
+    """
+    log("info", f"[create_exercise_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        item_id = f"memory-{datetime.now(UTC).timestamp()}"
+        now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        
+        item = {
+            "id": item_id,
+            "entryType": "exercise",
+            "name": name,
+            "user_name": user_name,
+            "data": json.dumps(processed_data.model_dump()),
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if notes:
+            item["notes"] = notes
+            
+        response = table.put_item(Item=item)
+        
+        log("info", f"[create_exercise_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+
+        return json.dumps({
+            "success": True,
+            "message": f"Exercise memory '{name}' saved successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[create_exercise_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_sleep_memory(
+    name: Annotated[str, Field(description="Name of the sleep routine (e.g., 'Weekday Sleep', 'Nap', 'Weekend Sleep')")],
+    processed_data: Annotated[
+        ProcessedDataSleep,
+        Field(description="Sleep data to save for this memory")
+    ],
+    user_name: Annotated[str, Field(description="User name/identifier to associate this memory with")],
+    notes: Annotated[Optional[str], Field(description="Additional notes about this sleep routine", default=None)] = None,
+) -> str:
+    """
+    Save a sleep routine to memory for quick logging later.
+    """
+    log("info", f"[create_sleep_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        item_id = f"memory-{datetime.now(UTC).timestamp()}"
+        now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        
+        item = {
+            "id": item_id,
+            "entryType": "sleep",
+            "name": name,
+            "user_name": user_name,
+            "data": json.dumps(processed_data.model_dump()),
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if notes:
+            item["notes"] = notes
+            
+        response = table.put_item(Item=item)
+        
+        log("info", f"[create_sleep_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+
+        return json.dumps({
+            "success": True,
+            "message": f"Sleep memory '{name}' saved successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[create_sleep_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def create_supplement_memory(
+    name: Annotated[str, Field(description="Name of the supplement/medication (e.g., 'Daily Vitamin D', 'Morning Omega-3')")],
+    processed_data: Annotated[
+        ProcessedDataSupplement,
+        Field(description="Supplement data to save for this memory")
+    ],
+    user_name: Annotated[str, Field(description="User name/identifier to associate this memory with")],
+    notes: Annotated[Optional[str], Field(description="Additional notes about when/how to take this supplement", default=None)] = None,
+) -> str:
+    """
+    Save a supplement/medication to memory for quick logging later.
+    """
+    log("info", f"[create_supplement_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        item_id = f"memory-{datetime.now(UTC).timestamp()}"
+        now = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        
+        item = {
+            "id": item_id,
+            "entryType": "supplement",
+            "name": name,
+            "user_name": user_name,
+            "data": json.dumps(processed_data.model_dump()),
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        
+        if notes:
+            item["notes"] = notes
+            
+        response = table.put_item(Item=item)
+        
+        log("info", f"[create_supplement_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+
+        return json.dumps({
+            "success": True,
+            "message": f"Supplement memory '{name}' saved successfully",
+            "data": item
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[create_supplement_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def get_memory_entries(
+    user_name: Annotated[str, Field(description="User name/identifier to fetch memory entries for")],
+    entry_type: Annotated[Optional[str], Field(description="Filter by entry type: 'food_drink', 'exercise', 'sleep', 'supplement'", default=None)] = None,
+    name_contains: Annotated[Optional[str], Field(description="Filter by entries whose name contains this text", default=None)] = None,
+    limit: Annotated[int, Field(description="Maximum number of items to return", ge=1, le=100, default=50)] = 50,
+) -> str:
+    """
+    Fetch saved memory entries from DynamoDB for a specific user.
+    """
+    log("info", f"[get_memory_entries] START - user_name={user_name}, entry_type={entry_type}, name_contains={name_contains}, limit={limit}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        # Try Query on GSI first, fall back to Scan if GSI doesn't exist
+        try:
+            log("info", f"[get_memory_entries] Attempting Query on user_name GSI")
+            
+            query_kwargs = {
+                "IndexName": "user_name-index",
+                "KeyConditionExpression": Key("user_name").eq(user_name),
+                "Limit": limit,
+            }
+            
+            # Build additional filters
+            filter_expressions = []
+            
+            if entry_type:
+                filter_expressions.append(Attr("entryType").eq(entry_type))
+            
+            if name_contains:
+                filter_expressions.append(Attr("name").contains(name_contains))
+            
+            if filter_expressions:
+                filter_expr = filter_expressions[0]
+                for expr in filter_expressions[1:]:
+                    filter_expr = filter_expr & expr
+                query_kwargs["FilterExpression"] = filter_expr
+            
+            response = table.query(**query_kwargs)
+            log("info", f"[get_memory_entries] Query successful on GSI")
+            
+        except Exception as gsi_error:
+            log("warning", f"[get_memory_entries] GSI query failed ({str(gsi_error)}), falling back to Scan")
+            
+            scan_kwargs = {
+                "Limit": limit,
+                "ConsistentRead": True,
+                "FilterExpression": Attr("user_name").eq(user_name)
+            }
+            
+            filter_expressions = [Attr("user_name").eq(user_name)]
+            
+            if entry_type:
+                filter_expressions.append(Attr("entryType").eq(entry_type))
+            
+            if name_contains:
+                filter_expressions.append(Attr("name").contains(name_contains))
+            
+            filter_expr = filter_expressions[0]
+            for expr in filter_expressions[1:]:
+                filter_expr = filter_expr & expr
+            scan_kwargs["FilterExpression"] = filter_expr
+            
+            response = table.scan(**scan_kwargs)
+        
+        items = response.get("Items", [])
+        
+        # Parse JSON strings back to objects
+        for item in items:
+            if "data" in item and isinstance(item["data"], str):
+                try:
+                    item["data"] = json.loads(item["data"])
+                except:
+                    pass
+        
+        log("info", f"[get_memory_entries] SUCCESS - found {len(items)} memory entries")
+        
+        return json.dumps({
+            "success": True,
+            "count": len(items),
+            "data": items
+        }, indent=2, default=str)
+        
+    except Exception as e:
+        log("error", f"[get_memory_entries] ERROR - user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
 
 
 @mcp.resource("recent-activities://{user_name}")
