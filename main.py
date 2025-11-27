@@ -782,7 +782,7 @@ def delete_all_user_activities(
 
 @mcp.tool()
 def create_food_drink_memory(
-    name: Annotated[str, Field(description="Name of the food/drink item (e.g., 'Greek Yogurt', 'Protein Shake', 'Grilled Chicken')")],
+    tags: Annotated[List[str], Field(description="List of tags/keywords for this food/drink item (e.g., ['greek yogurt', 'breakfast', 'protein'], ['coffee', 'espresso', 'morning'])")],
     processed_data: Annotated[
         ProcessedDataDrinkAndFood,
         Field(description="Nutritional data to save for this food/drink memory")
@@ -793,7 +793,7 @@ def create_food_drink_memory(
     """
     Save a food or drink item to memory for quick logging later.
     """
-    log("info", f"[create_food_drink_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    log("info", f"[create_food_drink_memory] START - tags={tags}, user_name={user_name}, processed_data={processed_data.model_dump()}")
     try:
         table = get_table("MemoryEntry")
         
@@ -803,7 +803,7 @@ def create_food_drink_memory(
         item = {
             "id": item_id,
             "entryType": "food_drink",
-            "name": name,
+            "tags": tags,
             "user_name": user_name,
             "data": json.dumps(processed_data.model_dump()),
             "createdAt": now,
@@ -815,16 +815,16 @@ def create_food_drink_memory(
             
         response = table.put_item(Item=item)
         
-        log("info", f"[create_food_drink_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+        log("info", f"[create_food_drink_memory] SUCCESS - created memory_id={item_id}, tags={tags}, user_name={user_name}")
 
         return json.dumps({
             "success": True,
-            "message": f"Memory entry '{name}' saved successfully",
+            "message": f"Memory entry with tags {tags} saved successfully",
             "data": item
         }, indent=2)
         
     except Exception as e:
-        log("error", f"[create_food_drink_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        log("error", f"[create_food_drink_memory] ERROR - tags={tags}, user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -833,7 +833,7 @@ def create_food_drink_memory(
 
 @mcp.tool()
 def create_exercise_memory(
-    name: Annotated[str, Field(description="Name of the exercise (e.g., 'Morning Run', 'Leg Day Workout', 'Yoga Session')")],
+    tags: Annotated[List[str], Field(description="List of tags/keywords for this exercise (e.g., ['morning run', '5k', 'cardio'], ['leg day', 'strength', 'gym'])")],
     processed_data: Annotated[
         ProcessedDataExercise,
         Field(description="Exercise data to save for this memory")
@@ -844,7 +844,7 @@ def create_exercise_memory(
     """
     Save an exercise routine to memory for quick logging later.
     """
-    log("info", f"[create_exercise_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    log("info", f"[create_exercise_memory] START - tags={tags}, user_name={user_name}, processed_data={processed_data.model_dump()}")
     try:
         table = get_table("MemoryEntry")
         
@@ -854,7 +854,7 @@ def create_exercise_memory(
         item = {
             "id": item_id,
             "entryType": "exercise",
-            "name": name,
+            "tags": tags,
             "user_name": user_name,
             "data": json.dumps(processed_data.model_dump()),
             "createdAt": now,
@@ -866,16 +866,16 @@ def create_exercise_memory(
             
         response = table.put_item(Item=item)
         
-        log("info", f"[create_exercise_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+        log("info", f"[create_exercise_memory] SUCCESS - created memory_id={item_id}, tags={tags}, user_name={user_name}")
 
         return json.dumps({
             "success": True,
-            "message": f"Exercise memory '{name}' saved successfully",
+            "message": f"Exercise memory with tags {tags} saved successfully",
             "data": item
         }, indent=2)
         
     except Exception as e:
-        log("error", f"[create_exercise_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        log("error", f"[create_exercise_memory] ERROR - tags={tags}, user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -884,7 +884,7 @@ def create_exercise_memory(
 
 @mcp.tool()
 def create_sleep_memory(
-    name: Annotated[str, Field(description="Name of the sleep routine (e.g., 'Weekday Sleep', 'Nap', 'Weekend Sleep')")],
+    tags: Annotated[List[str], Field(description="List of tags/keywords for this sleep routine (e.g., ['weekday sleep', '8 hours'], ['afternoon nap', 'power nap'])")],
     processed_data: Annotated[
         ProcessedDataSleep,
         Field(description="Sleep data to save for this memory")
@@ -895,7 +895,7 @@ def create_sleep_memory(
     """
     Save a sleep routine to memory for quick logging later.
     """
-    log("info", f"[create_sleep_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    log("info", f"[create_sleep_memory] START - tags={tags}, user_name={user_name}, processed_data={processed_data.model_dump()}")
     try:
         table = get_table("MemoryEntry")
         
@@ -905,7 +905,7 @@ def create_sleep_memory(
         item = {
             "id": item_id,
             "entryType": "sleep",
-            "name": name,
+            "tags": tags,
             "user_name": user_name,
             "data": json.dumps(processed_data.model_dump()),
             "createdAt": now,
@@ -917,16 +917,16 @@ def create_sleep_memory(
             
         response = table.put_item(Item=item)
         
-        log("info", f"[create_sleep_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+        log("info", f"[create_sleep_memory] SUCCESS - created memory_id={item_id}, tags={tags}, user_name={user_name}")
 
         return json.dumps({
             "success": True,
-            "message": f"Sleep memory '{name}' saved successfully",
+            "message": f"Sleep memory with tags {tags} saved successfully",
             "data": item
         }, indent=2)
         
     except Exception as e:
-        log("error", f"[create_sleep_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        log("error", f"[create_sleep_memory] ERROR - tags={tags}, user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -935,7 +935,7 @@ def create_sleep_memory(
 
 @mcp.tool()
 def create_supplement_memory(
-    name: Annotated[str, Field(description="Name of the supplement/medication (e.g., 'Daily Vitamin D', 'Morning Omega-3')")],
+    tags: Annotated[List[str], Field(description="List of tags/keywords for this supplement/medication (e.g., ['vitamin d', 'daily', 'morning'], ['omega-3', 'fish oil'])")],
     processed_data: Annotated[
         ProcessedDataSupplement,
         Field(description="Supplement data to save for this memory")
@@ -946,7 +946,7 @@ def create_supplement_memory(
     """
     Save a supplement/medication to memory for quick logging later.
     """
-    log("info", f"[create_supplement_memory] START - name={name}, user_name={user_name}, processed_data={processed_data.model_dump()}")
+    log("info", f"[create_supplement_memory] START - tags={tags}, user_name={user_name}, processed_data={processed_data.model_dump()}")
     try:
         table = get_table("MemoryEntry")
         
@@ -956,7 +956,7 @@ def create_supplement_memory(
         item = {
             "id": item_id,
             "entryType": "supplement",
-            "name": name,
+            "tags": tags,
             "user_name": user_name,
             "data": json.dumps(processed_data.model_dump()),
             "createdAt": now,
@@ -968,16 +968,16 @@ def create_supplement_memory(
             
         response = table.put_item(Item=item)
         
-        log("info", f"[create_supplement_memory] SUCCESS - created memory_id={item_id}, name={name}, user_name={user_name}")
+        log("info", f"[create_supplement_memory] SUCCESS - created memory_id={item_id}, tags={tags}, user_name={user_name}")
 
         return json.dumps({
             "success": True,
-            "message": f"Supplement memory '{name}' saved successfully",
+            "message": f"Supplement memory with tags {tags} saved successfully",
             "data": item
         }, indent=2)
         
     except Exception as e:
-        log("error", f"[create_supplement_memory] ERROR - name={name}, user_name={user_name}, error={str(e)}")
+        log("error", f"[create_supplement_memory] ERROR - tags={tags}, user_name={user_name}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
@@ -1054,6 +1054,46 @@ def get_memory_entries(
         
     except Exception as e:
         log("error", f"[get_memory_entries] ERROR - user_name={user_name}, error={str(e)}")
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+
+@mcp.tool()
+def delete_memory(
+    memory_id: Annotated[str, Field(description="Memory entry ID to delete (obtained from get_memory_entries)")]
+) -> str:
+    """
+    Delete a specific memory entry by ID from DynamoDB.
+    """
+    log("info", f"[delete_memory] START - memory_id={memory_id}")
+    try:
+        table = get_table("MemoryEntry")
+        
+        # Check if memory exists first
+        response = table.get_item(Key={"id": memory_id})
+        
+        if "Item" not in response:
+            log("warning", f"[delete_memory] NOT_FOUND - memory_id={memory_id}")
+            return json.dumps({
+                "success": False,
+                "message": f"Memory entry {memory_id} not found"
+            }, indent=2)
+        
+        # Delete the memory
+        table.delete_item(Key={"id": memory_id})
+        
+        log("info", f"[delete_memory] SUCCESS - deleted memory_id={memory_id}")
+        
+        return json.dumps({
+            "success": True,
+            "message": f"Memory entry {memory_id} deleted successfully",
+            "memory_id": memory_id
+        }, indent=2)
+        
+    except Exception as e:
+        log("error", f"[delete_memory] ERROR - memory_id={memory_id}, error={str(e)}")
         return json.dumps({
             "success": False,
             "error": str(e)
